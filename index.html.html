@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>plan_madrid_sevilla_interactivo_v2</title>
+<style>
+  :root{
+    --bg:#f4efe8; --panel:#fffdf9; --line:#e6dccf; --text:#2e2a26; --muted:#6f675f;
+    --hour-h:56px; --time-col:76px; --radius:16px; --shadow:0 10px 25px rgba(81,53,26,.08);
+    --food:#e79f6d; --culture:#7fb3d5; --arch:#9a8cff; --walk:#94c973; --kids:#ffcf70; --sport:#f08a8a; --relax:#86d4c4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#f7f3ec,#efe7dc);color:var(--text)}
+  a{color:#7c3b14;text-decoration:none}
+  .app{display:grid;grid-template-columns:390px 1fr;gap:18px;padding:18px;min-height:100vh}
+  .panel{background:rgba(255,253,249,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+  .sidebar{padding:16px;display:flex;flex-direction:column;gap:14px;position:sticky;top:18px;height:calc(100vh - 36px);overflow:auto}
+  .hero{padding:16px;border-radius:18px;background:linear-gradient(135deg,#fff7ee,#fffdf9);border:1px solid var(--line)}
+  .hero h1{margin:0 0 8px;font-size:1.35rem;line-height:1.1}
+  .small{font-size:.92rem;color:var(--muted);line-height:1.45}
+  .toolbar,.inline{display:flex;flex-wrap:wrap;gap:8px}
+  .btn,.select,input,textarea{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px;font:inherit;color:var(--text)}
+  .btn{cursor:pointer;font-weight:700}
+  .btn.primary{background:linear-gradient(135deg,#af6638,#8b4c21);color:#fff;border-color:#8b4c21}
+  .btn.ghost{background:#fff7f0}
+  .section h2{margin:0 0 10px;font-size:1rem}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:#fff9f3;font-size:.82rem;color:var(--muted)}
+  .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
+  .pool{display:flex;flex-direction:column;gap:10px}
+  .proposal{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 6px 16px rgba(80,58,33,.05)}
+  .proposal .img{height:120px;background-size:cover;background-position:center}
+  .proposal .body{padding:10px 12px}
+  .proposal h3{margin:0 0 6px;font-size:1rem}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .tag{padding:4px 8px;border-radius:999px;font-size:.76rem;border:1px solid rgba(0,0,0,.06);background:#faf6f0}
+  .muted{color:var(--muted)}
+  .proposal .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .proposal .row > *{flex:1}
+  .layout{padding:12px}
+  .calendar-controls{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .calendar-shell{overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}
+  .calendar{min-width:1050px}
+  .header-row,.day-col{display:grid;grid-template-columns:var(--time-col) repeat(5,1fr)}
+  .header-row{position:sticky;top:0;z-index:12;background:#fffdf9;border-bottom:1px solid var(--line)}
+  .header-cell{padding:14px 10px;border-right:1px solid var(--line);font-weight:800}
+  .header-cell small{display:block;font-weight:500;color:var(--muted);margin-top:3px}
+  .body-row{display:grid;grid-template-columns:var(--time-col) repeat(5,1fr)}
+  .time-col,.day-grid{position:relative}
+  .time-label{height:var(--hour-h);border-right:1px solid var(--line);border-bottom:1px solid #f1ebe2;padding:4px 8px;font-size:.85rem;color:var(--muted)}
+  .day-grid{border-right:1px solid var(--line);background:
+    linear-gradient(to bottom, transparent calc(var(--hour-h) - 1px), #f1ebe2 calc(var(--hour-h) - 1px));
+    background-size:100% var(--hour-h);
+    min-height: calc(var(--hours) * var(--hour-h));
+  }
+  .day-grid .drop-hint{position:absolute;inset:0;pointer-events:none}
+  .event{
+    position:absolute; left:8px; right:8px; border-radius:14px; padding:10px 12px 18px;
+    color:#2a231c; font-size:.86rem; box-shadow:0 8px 18px rgba(60,45,30,.12);
+    border:1px solid rgba(0,0,0,.06); cursor:grab; overflow:hidden;
+  }
+  .event.dragging{opacity:.7; cursor:grabbing}
+  .event .title{font-weight:800; padding-right:26px; margin-bottom:4px}
+  .event .sub{font-size:.78rem; color:#4c4137; display:flex; gap:8px; flex-wrap:wrap}
+  .event .maps{position:absolute; top:8px; right:30px; font-size:.75rem}
+  .event .edit{position:absolute; top:6px; right:8px; background:rgba(255,255,255,.7); border:none; border-radius:8px; cursor:pointer}
+  .event .resize{position:absolute; left:0; right:0; bottom:0; height:10px; cursor:ns-resize; background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.5))}
+  .mini{font-size:.74rem}
+  .empty-msg{padding:14px;color:var(--muted);font-size:.9rem}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .form-grid .wide{grid-column:1/-1}
+  textarea{min-height:80px;resize:vertical}
+  .search{width:100%}
+  .filters label{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:999px;background:#fff}
+  dialog{border:none;border-radius:18px;padding:0;box-shadow:0 30px 60px rgba(0,0,0,.18);max-width:640px;width:92vw}
+  dialog::backdrop{background:rgba(30,23,18,.35)}
+  .modal{padding:18px}
+  .modal h3{margin:0 0 12px}
+  .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+  .summary{white-space:pre-wrap;background:#fff8f2;border:1px solid var(--line);border-radius:14px;padding:12px;max-height:190px;overflow:auto;font-size:.88rem}
+  .legend{display:flex;flex-wrap:wrap;gap:8px}
+  @media (max-width:1100px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:relative;height:auto;top:0}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel sidebar">
+    <div class="hero">
+      <h1>Madrid + Sevilla · planning visual</h1>
+      <div class="small">Arrastra propuestas al calendario. Luego puedes <b>moverlas dentro del propio calendario</b>, <b>estirar su duración</b>, y editar si vais <b>todos</b>, <b>solo padres</b> o <b>solo niños mayores</b>.</div>
+      <div class="chips" style="margin-top:10px">
+        <span class="chip"><span class="dot" style="background:var(--food)"></span> Comida</span>
+        <span class="chip"><span class="dot" style="background:var(--culture)"></span> Cultura</span>
+        <span class="chip"><span class="dot" style="background:var(--arch)"></span> Arquitectura</span>
+        <span class="chip"><span class="dot" style="background:var(--walk)"></span> Paseo</span>
+        <span class="chip"><span class="dot" style="background:var(--kids)"></span> Niños</span>
+        <span class="chip"><span class="dot" style="background:var(--sport)"></span> Deporte</span>
+        <span class="chip"><span class="dot" style="background:var(--relax)"></span> Relax</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Control rápido</h2>
+      <div class="inline">
+        <button class="btn primary" id="demoBtn">Cargar ejemplo</button>
+        <button class="btn ghost" id="resetBtn">Vaciar calendario</button>
+        <button class="btn ghost" id="printBtn">Imprimir / PDF</button>
+      </div>
+      <div class="inline" style="margin-top:8px">
+        <label class="chip">Inicio <input id="startHour" type="number" min="0" max="23" value="9" style="width:62px;border:none;background:transparent;padding:0 0 0 6px"></label>
+        <label class="chip">Fin <input id="endHour" type="number" min="1" max="24" value="23" style="width:62px;border:none;background:transparent;padding:0 0 0 6px"></label>
+        <button class="btn" id="applyHours">Aplicar horario</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Filtrar propuestas</h2>
+      <input class="search" id="searchBox" placeholder="Buscar por nombre, zona, idea..." />
+      <div class="filters chips" id="typeFilters" style="margin-top:8px"></div>
+    </div>
+
+    <div class="section">
+      <h2>Propuestas</h2>
+      <div class="small" style="margin-bottom:8px">Cada ficha tiene color por tipo, enlace a Google Maps e imagen para decidir mejor con Berta.</div>
+      <div class="pool" id="proposalPool"></div>
+    </div>
+
+    <div class="section">
+      <h2>Añadir plan vuestro</h2>
+      <div class="form-grid">
+        <input id="newTitle" class="wide" placeholder="Nombre del plan" />
+        <select id="newType" class="select">
+          <option value="food">Comida</option>
+          <option value="culture">Cultura</option>
+          <option value="architecture">Arquitectura</option>
+          <option value="walk">Paseo</option>
+          <option value="kids">Niños</option>
+          <option value="sport">Deporte</option>
+          <option value="relax">Relax</option>
+        </select>
+        <select id="newAudience" class="select">
+          <option value="todos">Todos</option>
+          <option value="solo padres">Solo padres</option>
+          <option value="solo niños mayores">Solo niños mayores</option>
+          <option value="padres + niños mayores">Padres + niños mayores</option>
+        </select>
+        <input id="newPlace" placeholder="Zona o lugar" />
+        <input id="newMaps" placeholder="Link Google Maps" />
+        <input id="newImage" class="wide" placeholder="URL imagen (opcional)" />
+        <textarea id="newNotes" class="wide" placeholder="Notas: barato, reserva, ideal al atardecer, etc."></textarea>
+      </div>
+      <div class="inline" style="margin-top:8px">
+        <button class="btn primary" id="addProposal">Añadir a propuestas</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Resumen automático</h2>
+      <div class="summary" id="summaryBox">Todavía no hay nada colocado.</div>
+    </div>
+  </aside>
+
+  <main class="panel layout">
+    <div class="calendar-controls">
+      <div>
+        <h2 style="margin:0">Calendario por horas</h2>
+        <div class="small">Mueve un bloque dentro del calendario y redimensiónalo desde la parte inferior.</div>
+      </div>
+      <div class="legend">
+        <span class="chip">Miércoles · Madrid</span>
+        <span class="chip">Jueves · Madrid</span>
+        <span class="chip">Viernes · Madrid</span>
+        <span class="chip">Sábado · Sevilla</span>
+        <span class="chip">Domingo · Sevilla</span>
+      </div>
+    </div>
+    <div class="calendar-shell">
+      <div class="calendar" id="calendar"></div>
+    </div>
+  </main>
+</div>
+
+<dialog id="editDialog">
+  <form method="dialog" class="modal" id="editForm">
+    <h3>Editar plan</h3>
+    <div class="form-grid">
+      <input id="editTitle" class="wide" />
+      <select id="editType" class="select">
+        <option value="food">Comida</option>
+        <option value="culture">Cultura</option>
+        <option value="architecture">Arquitectura</option>
+        <option value="walk">Paseo</option>
+        <option value="kids">Niños</option>
+        <option value="sport">Deporte</option>
+        <option value="relax">Relax</option>
+      </select>
+      <select id="editAudience" class="select">
+        <option value="todos">Todos</option>
+        <option value="solo padres">Solo padres</option>
+        <option value="solo niños mayores">Solo niños mayores</option>
+        <option value="padres + niños mayores">Padres + niños mayores</option>
+      </select>
+      <select id="editDay" class="select"></select>
+      <input id="editStart" type="time" />
+      <input id="editDuration" type="number" min="15" step="15" placeholder="Duración min" />
+      <input id="editPlace" placeholder="Lugar / zona" />
+      <input id="editMaps" placeholder="Link Google Maps" />
+      <textarea id="editNotes" class="wide" placeholder="Notas"></textarea>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn" id="deleteBtn" type="button">Eliminar</button>
+      <button class="btn primary" id="saveEdit" type="submit">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const days = [
+  {id:'wed', label:'Miércoles', city:'Madrid', short:'Mié'},
+  {id:'thu', label:'Jueves', city:'Madrid', short:'Jue'},
+  {id:'fri', label:'Viernes', city:'Madrid', short:'Vie'},
+  {id:'sat', label:'Sábado', city:'Sevilla', short:'Sáb'},
+  {id:'sun', label:'Domingo', city:'Sevilla', short:'Dom'}
+];
+
+const types = {
+  food: {label:'Comida', color:getCss('--food')},
+  culture: {label:'Cultura', color:getCss('--culture')},
+  architecture: {label:'Arquitectura', color:getCss('--arch')},
+  walk: {label:'Paseo', color:getCss('--walk')},
+  kids: {label:'Niños', color:getCss('--kids')},
+  sport: {label:'Deporte', color:getCss('--sport')},
+  relax: {label:'Relax', color:getCss('--relax')}
+};
+
+function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+const defaultProposals = [
+  {id:uid(), title:'Picnic en El Retiro', type:'relax', audience:'todos', place:'Parque del Retiro', maps:'https://maps.google.com/?q=Parque+del+Retiro+Madrid', notes:'Muy económico. Buen aterrizaje el primer día.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Palacio_de_Cristal_del_Parque_del_Retiro_de_Madrid_%28Spain%29_02.jpg/640px-Palacio_de_Cristal_del_Parque_del_Retiro_de_Madrid_%28Spain%29_02.jpg'},
+  {id:uid(), title:'Mutua Madrid Open', type:'sport', audience:'todos', place:'Caja Mágica', maps:'https://maps.google.com/?q=Caja+Magica+Madrid', notes:'Tenéis entradas miércoles 20:00.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Caja_M%C3%A1gica_de_Madrid.jpg/640px-Caja_M%C3%A1gica_de_Madrid.jpg'},
+  {id:uid(), title:'Azotea Círculo de Bellas Artes', type:'architecture', audience:'solo padres', place:'Círculo de Bellas Artes', maps:'https://maps.google.com/?q=Circulo+de+Bellas+Artes+Madrid', notes:'Atardecer de impacto. Muy buen recuerdo de ciudad.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Edificio_del_C%C3%ADrculo_de_Bellas_Artes%2C_Madrid%2C_Espa%C3%B1a%2C_2015-07-09%2C_DD_02.JPG/640px-Edificio_del_C%C3%ADrculo_de_Bellas_Artes%2C_Madrid%2C_Espa%C3%B1a%2C_2015-07-09%2C_DD_02.JPG'},
+  {id:uid(), title:'Tapas por Barrio de las Letras', type:'food', audience:'todos', place:'Barrio de las Letras', maps:'https://maps.google.com/?q=Barrio+de+las+Letras+Madrid', notes:'Bonito, cómodo y con ambiente.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Plaza_de_Santa_Ana%2C_Madrid_%282022%29.jpg/640px-Plaza_de_Santa_Ana%2C_Madrid_%282022%29.jpg'},
+  {id:uid(), title:'Comer en Casa Lucio / zona Latina', type:'food', audience:'todos', place:'Casa Lucio - La Latina', maps:'https://maps.google.com/?q=Casa+Lucio+Madrid', notes:'Plan con carácter; puede ser comida principal del viaje.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Cava_Baja_Madrid.jpg/640px-Cava_Baja_Madrid.jpg'},
+  {id:uid(), title:'Palacio Real + Almudena exterior', type:'culture', audience:'todos', place:'Palacio Real', maps:'https://maps.google.com/?q=Palacio+Real+de+Madrid', notes:'Icono corto, sin empacharse.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Palacio_Real_de_Madrid_00.jpg/640px-Palacio_Real_de_Madrid_00.jpg'},
+  {id:uid(), title:'Madrid Río con niñas', type:'kids', audience:'todos', place:'Madrid Río', maps:'https://maps.google.com/?q=Madrid+Rio', notes:'Gratis, espacio, juego y aire.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Madrid_Rio_07.jpg/640px-Madrid_Rio_07.jpg'},
+  {id:uid(), title:'Templo de Debod al atardecer', type:'walk', audience:'todos', place:'Templo de Debod', maps:'https://maps.google.com/?q=Templo+de+Debod+Madrid', notes:'Atardecer barato y muy lucido.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Templo_de_Debod_Madrid.jpg/640px-Templo_de_Debod_Madrid.jpg'},
+  {id:uid(), title:'Plaza de España de Sevilla', type:'architecture', audience:'todos', place:'Plaza de España, Sevilla', maps:'https://maps.google.com/?q=Plaza+de+Espana+Sevilla', notes:'Impacto visual claro al llegar.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Plaza_de_Espa%C3%B1a_de_Sevilla.jpg/640px-Plaza_de_Espa%C3%B1a_de_Sevilla.jpg'},
+  {id:uid(), title:'Paseo por Santa Cruz', type:'walk', audience:'todos', place:'Barrio de Santa Cruz, Sevilla', maps:'https://maps.google.com/?q=Santa+Cruz+Sevilla', notes:'Noche con encanto y sin complicarse.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Calle_Sevilla_Barrio_Santa_Cruz.jpg/640px-Calle_Sevilla_Barrio_Santa_Cruz.jpg'},
+  {id:uid(), title:'Setas de Sevilla', type:'architecture', audience:'todos', place:'Metropol Parasol', maps:'https://maps.google.com/?q=Metropol+Parasol+Sevilla', notes:'Muy visual para rematar antes de volver.', image:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Metropol_Parasol_2015.jpg/640px-Metropol_Parasol_2015.jpg'}
+];
+
+let proposals = load('travel_proposals', defaultProposals);
+let events = load('travel_events', []);
+let viewStart = Number(localStorage.getItem('travel_hours_start') || 9);
+let viewEnd = Number(localStorage.getItem('travel_hours_end') || 23);
+let currentEditId = null;
+let activeFilters = new Set();
+let dragData = null;
+let resizeData = null;
+
+function uid(){ return 'id-' + Math.random().toString(36).slice(2,9); }
+function saveState(){
+  localStorage.setItem('travel_proposals', JSON.stringify(proposals));
+  localStorage.setItem('travel_events', JSON.stringify(events));
+  localStorage.setItem('travel_hours_start', viewStart);
+  localStorage.setItem('travel_hours_end', viewEnd);
+}
+function load(key, fallback){
+  try{ const x = JSON.parse(localStorage.getItem(key)); return x ?? fallback; }catch(e){ return fallback; }
+}
+function hmToMin(hm){ const [h,m] = hm.split(':').map(Number); return h*60+m; }
+function minToHm(min){ const h = Math.floor(min/60), m = min%60; return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function snap15(v){ return Math.round(v/15)*15; }
+
+function renderFilters(){
+  const box = document.getElementById('typeFilters');
+  box.innerHTML = '';
+  Object.entries(types).forEach(([k,v]) => {
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" data-type="${k}" ${activeFilters.has(k)?'checked':''}> ${v.label}`;
+    box.appendChild(label);
+  });
+}
+
+function renderProposalPool(){
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const box = document.getElementById('proposalPool');
+  box.innerHTML = '';
+  let shown = 0;
+  proposals.filter(p => {
+    const text = `${p.title} ${p.place||''} ${p.notes||''} ${types[p.type]?.label||''}`.toLowerCase();
+    const okSearch = !q || text.includes(q);
+    const okFilter = activeFilters.size === 0 || activeFilters.has(p.type);
+    return okSearch && okFilter;
+  }).forEach(p => {
+    shown++;
+    const card = document.createElement('div');
+    card.className = 'proposal';
+    card.draggable = true;
+    card.dataset.id = p.id;
+    card.innerHTML = `
+      <div class="img" style="background-image:url('${(p.image||'').replace(/'/g,"%27")}'); background-color:${types[p.type].color}55"></div>
+      <div class="body">
+        <h3>${escapeHtml(p.title)}</h3>
+        <div class="meta">
+          <span class="tag" style="background:${types[p.type].color}22;border-color:${types[p.type].color}55">${types[p.type].label}</span>
+          <span class="tag">${escapeHtml(p.audience || 'todos')}</span>
+        </div>
+        <div class="mini muted">${escapeHtml(p.place||'')}</div>
+        <div class="mini" style="margin-top:6px">${escapeHtml(p.notes||'')}</div>
+        <div class="row">
+          <a class="btn ghost" href="${p.maps||'#'}" target="_blank" rel="noopener">Google Maps</a>
+          <button class="btn" data-add="${p.id}">Colocar</button>
+        </div>
+      </div>`;
+    card.addEventListener('dragstart', e => {
+      dragData = {kind:'proposal', id:p.id};
+      e.dataTransfer.setData('text/plain', JSON.stringify(dragData));
+    });
+    box.appendChild(card);
+  });
+  if(!shown){ box.innerHTML = `<div class="empty-msg">No hay propuestas con ese filtro.</div>`; }
+  box.querySelectorAll('[data-add]').forEach(btn => btn.onclick = () => quickAdd(btn.dataset.add));
+}
+
+function renderCalendar(){
+  const cal = document.getElementById('calendar');
+  document.documentElement.style.setProperty('--hours', viewEnd - viewStart);
+  let header = `<div class="header-row"><div class="header-cell"></div>`;
+  days.forEach(d => header += `<div class="header-cell">${d.label}<small>${d.city}</small></div>`);
+  header += `</div>`;
+
+  let body = `<div class="body-row">`;
+  body += `<div class="time-col">`;
+  for(let h=viewStart; h<viewEnd; h++){
+    body += `<div class="time-label">${String(h).padStart(2,'0')}:00</div>`;
+  }
+  body += `</div>`;
+
+  days.forEach(d => {
+    body += `<div class="day-grid" data-day="${d.id}"></div>`;
+  });
+  body += `</div>`;
+  cal.innerHTML = header + body;
+
+  document.querySelectorAll('.day-grid').forEach(grid => {
+    const day = grid.dataset.day;
+    grid.addEventListener('dragover', e => e.preventDefault());
+    grid.addEventListener('drop', onGridDrop);
+    grid.addEventListener('dblclick', (e) => {
+      const minutes = pointToMinutes(grid, e.clientY);
+      const start = snap15(minutes);
+      events.push({
+        id: uid(), title:'Nuevo plan', type:'walk', audience:'todos', day,
+        startMin: start, duration: 60, place:'', maps:'', notes:''
+      });
+      saveState(); renderAll();
+    });
+    events.filter(ev => ev.day === day).forEach(ev => grid.appendChild(eventElement(ev)));
+  });
+  updateSummary();
+}
+
+function eventElement(ev){
+  const el = document.createElement('div');
+  el.className = 'event';
+  el.dataset.id = ev.id;
+  const top = ((ev.startMin - viewStart*60) / 60) * pxHour();
+  const height = (ev.duration / 60) * pxHour();
+  el.style.top = `${top}px`;
+  el.style.height = `${Math.max(34,height)}px`;
+  el.style.background = `linear-gradient(180deg, ${types[ev.type].color}bb, ${types[ev.type].color}99)`;
+  el.innerHTML = `
+    <div class="title">${escapeHtml(ev.title)}</div>
+    <div class="sub">
+      <span>${minToHm(ev.startMin)} · ${ev.duration} min</span>
+      <span>${escapeHtml(types[ev.type].label)}</span>
+      <span>${escapeHtml(ev.audience || 'todos')}</span>
+    </div>
+    ${ev.place ? `<div class="mini" style="margin-top:4px">${escapeHtml(ev.place)}</div>`:''}
+    ${ev.maps ? `<a class="maps" href="${ev.maps}" target="_blank" rel="noopener">Maps</a>`:''}
+    <button class="edit" title="Editar">✎</button>
+    <div class="resize" title="Redimensionar"></div>
+  `;
+  el.draggable = true;
+  el.addEventListener('dragstart', e => {
+    dragData = {kind:'event', id:ev.id};
+    el.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', JSON.stringify(dragData));
+  });
+  el.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+  el.querySelector('.edit').onclick = (e) => { e.stopPropagation(); openEdit(ev.id); };
+  el.addEventListener('click', (e) => {
+    if(e.target.closest('.resize') || e.target.closest('.edit') || e.target.closest('a')) return;
+    openEdit(ev.id);
+  });
+  el.querySelector('.resize').addEventListener('mousedown', e => startResize(e, ev.id));
+  return el;
+}
+
+function pointToMinutes(grid, clientY){
+  const rect = grid.getBoundingClientRect();
+  const y = clamp(clientY - rect.top, 0, rect.height);
+  const mins = viewStart*60 + (y / pxHour())*60;
+  return clamp(mins, viewStart*60, viewEnd*60 - 15);
+}
+function pxHour(){ return Number(getComputedStyle(document.documentElement).getPropertyValue('--hour-h').replace('px','')); }
+
+function onGridDrop(e){
+  e.preventDefault();
+  let data;
+  try{ data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}'); }catch(err){ data = dragData; }
+  if(!data) return;
+  const day = e.currentTarget.dataset.day;
+  const startMin = snap15(pointToMinutes(e.currentTarget, e.clientY));
+
+  if(data.kind === 'proposal'){
+    const p = proposals.find(x => x.id === data.id);
+    if(!p) return;
+    events.push({
+      id: uid(), title:p.title, type:p.type, audience:p.audience || 'todos', day,
+      startMin, duration: 90, place:p.place || '', maps:p.maps || '', notes:p.notes || ''
+    });
+  } else if(data.kind === 'event'){
+    const ev = events.find(x => x.id === data.id);
+    if(!ev) return;
+    ev.day = day;
+    ev.startMin = clamp(startMin, viewStart*60, viewEnd*60 - 15);
+  }
+  dragData = null;
+  saveState(); renderAll();
+}
+
+function startResize(e, id){
+  e.preventDefault();
+  e.stopPropagation();
+  const ev = events.find(x => x.id === id);
+  if(!ev) return;
+  const startY = e.clientY;
+  const startDuration = ev.duration;
+  resizeData = {id, startY, startDuration};
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', stopResize);
+}
+function onResizeMove(e){
+  if(!resizeData) return;
+  const ev = events.find(x => x.id === resizeData.id);
+  if(!ev) return;
+  const deltaPx = e.clientY - resizeData.startY;
+  const deltaMin = snap15((deltaPx / pxHour()) * 60);
+  ev.duration = clamp(resizeData.startDuration + deltaMin, 15, (viewEnd*60 - ev.startMin));
+  renderCalendar();
+}
+function stopResize(){
+  if(!resizeData) return;
+  resizeData = null;
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', stopResize);
+  saveState(); renderAll();
+}
+
+function quickAdd(proposalId){
+  const p = proposals.find(x => x.id === proposalId);
+  if(!p) return;
+  events.push({
+    id: uid(), title:p.title, type:p.type, audience:p.audience || 'todos',
+    day:'wed', startMin: 12*60, duration:90, place:p.place || '', maps:p.maps || '', notes:p.notes || ''
+  });
+  saveState(); renderAll();
+}
+
+function openEdit(id){
+  const ev = events.find(x => x.id === id); if(!ev) return;
+  currentEditId = id;
+  editTitle.value = ev.title;
+  editType.value = ev.type;
+  editAudience.value = ev.audience || 'todos';
+  editDay.innerHTML = days.map(d => `<option value="${d.id}" ${d.id===ev.day?'selected':''}>${d.label}</option>`).join('');
+  editStart.value = minToHm(ev.startMin);
+  editDuration.value = ev.duration;
+  editPlace.value = ev.place || '';
+  editMaps.value = ev.maps || '';
+  editNotes.value = ev.notes || '';
+  document.getElementById('editDialog').showModal();
+}
+function deleteCurrent(){
+  if(!currentEditId) return;
+  events = events.filter(x => x.id !== currentEditId);
+  currentEditId = null;
+  saveState(); renderAll();
+  document.getElementById('editDialog').close();
+}
+function saveEditForm(e){
+  e.preventDefault();
+  const ev = events.find(x => x.id === currentEditId); if(!ev) return;
+  ev.title = editTitle.value.trim() || 'Nuevo plan';
+  ev.type = editType.value;
+  ev.audience = editAudience.value;
+  ev.day = editDay.value;
+  ev.startMin = clamp(hmToMin(editStart.value || '12:00'), viewStart*60, viewEnd*60 - 15);
+  ev.duration = clamp(Number(editDuration.value || 60), 15, viewEnd*60 - ev.startMin);
+  ev.place = editPlace.value.trim();
+  ev.maps = editMaps.value.trim();
+  ev.notes = editNotes.value.trim();
+  saveState(); renderAll();
+  document.getElementById('editDialog').close();
+}
+
+function addProposal(){
+  const title = newTitle.value.trim();
+  if(!title) return alert('Pon al menos un nombre al plan.');
+  proposals.unshift({
+    id: uid(),
+    title,
+    type: newType.value,
+    audience: newAudience.value,
+    place: newPlace.value.trim(),
+    maps: newMaps.value.trim(),
+    notes: newNotes.value.trim(),
+    image: newImage.value.trim() || ''
+  });
+  ['newTitle','newPlace','newMaps','newNotes','newImage'].forEach(id => document.getElementById(id).value='');
+  newType.value='food'; newAudience.value='todos';
+  saveState(); renderAll();
+}
+
+function applyHours(){
+  const s = Number(startHour.value), e = Number(endHour.value);
+  if(Number.isNaN(s) || Number.isNaN(e) || s < 0 || e > 24 || e <= s) return alert('Revisa el rango horario.');
+  viewStart = s; viewEnd = e;
+  events.forEach(ev => {
+    ev.startMin = clamp(ev.startMin, viewStart*60, viewEnd*60 - 15);
+    ev.duration = clamp(ev.duration, 15, viewEnd*60 - ev.startMin);
+  });
+  saveState(); renderAll();
+}
+
+function loadDemo(){
+  events = [
+    {id:uid(), title:'Picnic en El Retiro', type:'relax', audience:'todos', day:'wed', startMin:13*60, duration:120, place:'Parque del Retiro', maps:'https://maps.google.com/?q=Parque+del+Retiro+Madrid', notes:'Comida preparada por Berta'},
+    {id:uid(), title:'Mutua Madrid Open', type:'sport', audience:'todos', day:'wed', startMin:19*60+30, duration:180, place:'Caja Mágica', maps:'https://maps.google.com/?q=Caja+Magica+Madrid', notes:'Entradas ya compradas'},
+    {id:uid(), title:'Palacio Real + Almudena exterior', type:'culture', audience:'todos', day:'thu', startMin:10*60, duration:105, place:'Palacio Real', maps:'https://maps.google.com/?q=Palacio+Real+de+Madrid', notes:''},
+    {id:uid(), title:'Madrid Río con niñas', type:'kids', audience:'todos', day:'thu', startMin:16*60, duration:120, place:'Madrid Río', maps:'https://maps.google.com/?q=Madrid+Rio', notes:''},
+    {id:uid(), title:'Azotea Círculo de Bellas Artes', type:'architecture', audience:'solo padres', day:'thu', startMin:20*60, duration:90, place:'Círculo de Bellas Artes', maps:'https://maps.google.com/?q=Circulo+de+Bellas+Artes+Madrid', notes:'Atardecer'},
+    {id:uid(), title:'Tapas por Barrio de las Letras', type:'food', audience:'todos', day:'fri', startMin:20*60, duration:120, place:'Barrio de las Letras', maps:'https://maps.google.com/?q=Barrio+de+las+Letras+Madrid', notes:''},
+    {id:uid(), title:'Plaza de España de Sevilla', type:'architecture', audience:'todos', day:'sat', startMin:13*60, duration:120, place:'Sevilla', maps:'https://maps.google.com/?q=Plaza+de+Espana+Sevilla', notes:'Llegada 12:00 aprox'},
+    {id:uid(), title:'Paseo por Santa Cruz', type:'walk', audience:'todos', day:'sat', startMin:20*60, duration:120, place:'Santa Cruz', maps:'https://maps.google.com/?q=Santa+Cruz+Sevilla', notes:''},
+    {id:uid(), title:'Setas de Sevilla', type:'architecture', audience:'todos', day:'sun', startMin:11*60, duration:75, place:'Metropol Parasol', maps:'https://maps.google.com/?q=Metropol+Parasol+Sevilla', notes:'Antes de salir'}
+  ];
+  saveState(); renderAll();
+}
+
+function updateSummary(){
+  const box = document.getElementById('summaryBox');
+  if(!events.length){ box.textContent = 'Todavía no hay nada colocado.'; return; }
+  const lines = [];
+  days.forEach(day => {
+    const list = events.filter(e => e.day===day.id).sort((a,b)=>a.startMin-b.startMin);
+    if(!list.length) return;
+    lines.push(day.label + ' · ' + day.city);
+    list.forEach(e => {
+      lines.push(`  ${minToHm(e.startMin)} · ${e.title} · ${types[e.type].label} · ${e.audience}${e.place ? ' · ' + e.place : ''}`);
+    });
+    lines.push('');
+  });
+  box.textContent = lines.join('\n').trim();
+}
+
+function renderAll(){
+  startHour.value = viewStart; endHour.value = viewEnd;
+  renderFilters();
+  renderProposalPool();
+  renderCalendar();
+}
+
+function escapeHtml(str){
+  return (str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+document.getElementById('searchBox').addEventListener('input', renderProposalPool);
+document.getElementById('typeFilters').addEventListener('change', e => {
+  const cb = e.target.closest('input[data-type]'); if(!cb) return;
+  if(cb.checked) activeFilters.add(cb.dataset.type); else activeFilters.delete(cb.dataset.type);
+  renderProposalPool();
+});
+document.getElementById('addProposal').onclick = addProposal;
+document.getElementById('applyHours').onclick = applyHours;
+document.getElementById('demoBtn').onclick = loadDemo;
+document.getElementById('resetBtn').onclick = () => { if(confirm('¿Vaciar calendario?')){ events=[]; saveState(); renderAll(); } };
+document.getElementById('printBtn').onclick = () => window.print();
+document.getElementById('saveEdit').onclick = saveEditForm;
+document.getElementById('deleteBtn').onclick = deleteCurrent;
+document.getElementById('editDialog').addEventListener('close', ()=> currentEditId = null);
+
+renderAll();
+</script>
+</body>
+</html>
